@@ -1,11 +1,15 @@
-FROM python:3.10-alpine3.18 AS builder
-COPY package.json .npmrc pnpm-lock.yaml /tmp/build/
+FROM python:3.10-alpine AS builder
+WORKDIR /tmp/build
+COPY package.json .npmrc pnpm-lock.yaml ./
 RUN set -x \
   && apk update \
   && apk add nodejs npm git \
   && npm i -g pnpm@8.3.1 pm2 ts-node \
-  && cd /tmp/build \
-  && pnpm install --prod
+  && pnpm install --frozen-lockfile
+
+COPY . .
+RUN pnpm build:front \
+  && pnpm build:back
 
 FROM python:3.10-alpine
 
@@ -57,15 +61,12 @@ RUN set -x \
   && ulimit -c 0
 
 ARG SOURCE_COMMIT
-RUN git clone --depth=1 -b ${QL_BRANCH} ${QL_URL} ${QL_DIR} \
-  && cd ${QL_DIR} \
+WORKDIR ${QL_DIR}
+COPY . ${QL_DIR}
+RUN cd ${QL_DIR} \
   && cp -f .env.example .env \
   && chmod 777 ${QL_DIR}/shell/*.sh \
-  && chmod 777 ${QL_DIR}/docker/*.sh \
-  && git clone --depth=1 -b ${QL_BRANCH} https://github.com/${QL_MAINTAINER}/qinglong-static.git /static \
-  && mkdir -p ${QL_DIR}/static \
-  && cp -rf /static/* ${QL_DIR}/static \
-  && rm -rf /static
+  && chmod 777 ${QL_DIR}/docker/*.sh
 
 ENV PNPM_HOME=${QL_DIR}/data/dep_cache/node \
   PYTHON_HOME=${QL_DIR}/data/dep_cache/python3 \
@@ -80,8 +81,8 @@ ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PNPM_HOM
 RUN pip3 install --prefix ${PYTHON_HOME} requests
 
 COPY --from=builder /tmp/build/node_modules/. /ql/node_modules/
-
-WORKDIR ${QL_DIR}
+COPY --from=builder /tmp/build/static/build/. /ql/static/build/
+COPY --from=builder /tmp/build/static/dist/. /ql/static/dist/
 
 HEALTHCHECK --interval=5s --timeout=2s --retries=20 \
   CMD curl -sf --noproxy '*' http://127.0.0.1:${QlPort:-5700}/api/health || exit 1
