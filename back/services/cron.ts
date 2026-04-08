@@ -668,7 +668,11 @@ export default class CronService {
 
   private async setCrontab(data?: { data: Crontab[]; total: number }) {
     const tabs = data ?? (await this.crontabs());
-    var crontab_string = '';
+    let crontab_string = '';
+    if (process.env.PATH) {
+      crontab_string += `PATH=${process.env.PATH}\n`;
+    }
+    crontab_string += 'SHELL=/bin/bash\n';
     tabs.data.forEach((tab) => {
       if (
         tab.isDisabled === 1 ||

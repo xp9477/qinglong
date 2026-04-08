@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import os from 'os';
 import path from 'path';
 import { createRandomString } from './share';
 
@@ -61,6 +62,25 @@ if (!process.env.QL_DIR) {
   }
   process.env.QL_DIR = qlHomePath.replace(/\/$/g, '');
 }
+
+const ensureRuntimePath = () => {
+  const currentPath = process.env.PATH || '';
+  const homeBinPath = path.join(os.homedir(), 'bin');
+  const runtimePaths = [
+    homeBinPath,
+    process.env.PNPM_HOME,
+    process.env.PYTHON_HOME
+      ? path.join(process.env.PYTHON_HOME, 'bin')
+      : undefined,
+  ].filter((item): item is string => Boolean(item));
+  const mergedPaths = [
+    ...runtimePaths,
+    ...currentPath.split(path.delimiter).filter(Boolean),
+  ];
+  process.env.PATH = Array.from(new Set(mergedPaths)).join(path.delimiter);
+};
+
+ensureRuntimePath();
 
 const lastVersionFile = `https://qn.whyour.cn/version.yaml`;
 
