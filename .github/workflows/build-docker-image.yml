@@ -14,14 +14,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  build:
-    if: ${{ github.ref_name == 'master' && !startsWith(github.ref, 'refs/tags/') }}
-
+  build-static:
     runs-on: ubuntu-22.04
-
-    permissions:
-      packages: write
-      contents: read
 
     steps:
       - uses: actions/checkout@v6
@@ -32,6 +26,37 @@ jobs:
         with:
           node-version: "22"
           cache: "pnpm"
+
+      - name: Build front and back
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:front
+          pnpm build:back
+
+      - name: Upload static bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: qinglong-static
+          path: static
+          if-no-files-found: error
+
+  build:
+    if: ${{ github.ref_name == 'master' && !startsWith(github.ref, 'refs/tags/') }}
+    needs: build-static
+
+    runs-on: ubuntu-22.04
+
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download static bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: qinglong-static
+          path: static
 
       - name: Read version from version.yaml
         id: version
@@ -103,6 +128,7 @@ jobs:
 
   build310:
     if: ${{ github.ref_name == 'master' }}
+    needs: build-static
 
     runs-on: ubuntu-22.04
 
@@ -112,13 +138,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
+      - name: Download static bundle
+        uses: actions/download-artifact@v4
         with:
-          version: "8.3.1"
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: "pnpm"
+          name: qinglong-static
+          path: static
 
       - name: Read version from version.yaml
         id: version

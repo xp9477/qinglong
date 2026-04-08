@@ -5,11 +5,7 @@ RUN set -x \
   && apk update \
   && apk add nodejs npm git \
   && npm i -g pnpm@8.3.1 pm2 ts-node \
-  && pnpm install --frozen-lockfile
-
-COPY . .
-RUN pnpm build:front \
-  && pnpm build:back
+  && pnpm install --prod
 
 FROM python:3.10-alpine
 
@@ -81,8 +77,6 @@ ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PNPM_HOM
 RUN pip3 install --prefix ${PYTHON_HOME} requests
 
 COPY --from=builder /tmp/build/node_modules/. /ql/node_modules/
-COPY --from=builder /tmp/build/static/build/. /ql/static/build/
-COPY --from=builder /tmp/build/static/dist/. /ql/static/dist/
 
 HEALTHCHECK --interval=5s --timeout=2s --retries=20 \
   CMD curl -sf --noproxy '*' http://127.0.0.1:${QlPort:-5700}/api/health || exit 1
