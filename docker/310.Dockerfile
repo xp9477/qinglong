@@ -1,13 +1,18 @@
-FROM python:3.10-alpine AS builder
+FROM python:3.10-slim AS builder
 WORKDIR /tmp/build
 COPY package.json .npmrc pnpm-lock.yaml ./
 RUN set -x \
-  && apk update \
-  && apk add nodejs npm git \
+  && apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  ca-certificates \
+  git \
+  nodejs \
+  npm \
   && npm i -g pnpm@8.3.1 pm2 ts-node \
-  && pnpm install --prod
+  && pnpm install --prod \
+  && rm -rf /var/lib/apt/lists/*
 
-FROM python:3.10-alpine
+FROM python:3.10-slim
 
 ARG QL_MAINTAINER="whyour"
 LABEL maintainer="${QL_MAINTAINER}"
@@ -29,25 +34,26 @@ COPY --from=builder /usr/local/lib/node_modules/. /usr/local/lib/node_modules/
 COPY --from=builder /usr/local/bin/. /usr/local/bin/
 
 RUN set -x \
-  && apk update -f \
-  && apk upgrade \
-  && apk --no-cache add -f bash \
+  && apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  bash \
+  ca-certificates \
   coreutils \
+  cron \
   git \
   curl \
   wget \
   tzdata \
   perl \
   openssl \
-  nodejs \
   jq \
-  openssh \
+  nodejs \
+  npm \
+  openssh-client \
   procps \
   netcat-openbsd \
   unzip \
-  npm \
-  && rm -rf /var/cache/apk/* \
-  && apk update \
+  && rm -rf /var/lib/apt/lists/* \
   && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
   && echo "Asia/Shanghai" > /etc/timezone \
   && git config --global user.email "qinglong@users.noreply.github.com" \

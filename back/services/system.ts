@@ -9,6 +9,7 @@ import winston from 'winston';
 import config from '../config';
 import { NotificationModeStringMap, TASK_COMMAND } from '../config/const';
 import {
+  getLinuxPackageManager,
   getPid,
   killTask,
   parseContentVersion,
@@ -218,28 +219,25 @@ export default class SystemService {
       ...oDoc,
       info: { ...oDoc.info, ...info },
     });
-    let defaultDomain = 'https://dl-cdn.alpinelinux.org';
-    let targetDomain = 'https://dl-cdn.alpinelinux.org';
-    if (os.platform() !== 'linux') {
+    const packageManager = getLinuxPackageManager();
+    if (os.platform() !== 'linux' || !packageManager) {
       return;
     }
-    const content = await fs.promises.readFile('/etc/apk/repositories', {
-      encoding: 'utf-8',
-    });
-    const domainMatch = content.match(/(http.*)\/alpine\/.*/);
-    if (domainMatch) {
-      defaultDomain = domainMatch[1];
-    }
-    if (info.linuxMirror) {
-      targetDomain = info.linuxMirror;
-    }
-    const command = `sed -i 's/${defaultDomain.replace(
-      /\//g,
-      '\\/',
-    )}/${targetDomain.replace(
-      /\//g,
-      '\\/',
-    )}/g' /etc/apk/repositories && apk update -f`;
+    const quoteShellValue = (value: string) =>
+      `'${value.replace(/'/g, `'\\''`)}'`;
+    const targetDomain =
+      info.linuxMirror ||
+      (packageManager === 'apt'
+        ? 'http://deb.debian.org'
+        : 'https://dl-cdn.alpinelinux.org');
+    const command =
+      packageManager === 'apt'
+        ? `TARGET_DOMAIN=${quoteShellValue(
+            targetDomain,
+          )} find /etc/apt -maxdepth 2 -type f \\( -name '*.list' -o -name '*.sources' \\) -exec perl -0pi -e 's#https?://[^/\\s]+(?=/(?:debian|debian-security|ubuntu))#$ENV{TARGET_DOMAIN}#g' {} + && apt-get update`
+        : `TARGET_DOMAIN=${quoteShellValue(
+            targetDomain,
+          )} perl -0pi -e 's#https?://[^/\\s]+(?=/alpine/)#$ENV{TARGET_DOMAIN}#g' /etc/apk/repositories && apk update -f`;
 
     this.scheduleService.runTask(
       command,

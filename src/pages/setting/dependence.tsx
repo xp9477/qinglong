@@ -215,7 +215,7 @@ const Dependence = () => {
         <Form.Item
           label={intl.get('Linux 软件包镜像源')}
           name="linux"
-          tooltip={intl.get('alpine linux 镜像源')}
+          tooltip={intl.get('Debian/Ubuntu apt 或 Alpine apk 镜像源')}
         >
           <Input.Group compact>
             <Input

@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises';
+import { existsSync } from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import psTreeFun from 'ps-tree';
@@ -535,7 +536,32 @@ export async function setSystemTimezone(timezone: string): Promise<boolean> {
   }
 }
 
+export type LinuxPackageManager = 'apk' | 'apt';
+
+export function getLinuxPackageManager(): LinuxPackageManager | '' {
+  if (process.platform !== 'linux') {
+    return '';
+  }
+  if (
+    existsSync('/etc/alpine-release') ||
+    existsSync('/sbin/apk') ||
+    existsSync('/bin/apk')
+  ) {
+    return 'apk';
+  }
+  if (existsSync('/usr/bin/apt-get') || existsSync('/bin/apt-get')) {
+    return 'apt';
+  }
+  return '';
+}
+
+function getLinuxBasePackageName(name: string): string {
+  return name.trim().split(/\s+/)[0]?.split('=')[0] || name.trim();
+}
+
 export function getGetCommand(type: DependenceTypes, name: string): string {
+  const linuxPackageManager = getLinuxPackageManager();
+  const linuxBasePackageName = getLinuxBasePackageName(name);
   const baseCommands = {
     [DependenceTypes.nodejs]: `pnpm ls -g  | grep "${name}" | head -1`,
     [DependenceTypes.python3]: `
@@ -550,24 +576,39 @@ except:
     spec=u.find_spec(name)
     print(name if spec else '')
 ''')"`,
-    [DependenceTypes.linux]: `apk info -es ${name}`,
+    [DependenceTypes.linux]:
+      linuxPackageManager === 'apt'
+        ? `dpkg-query -W -f='\${Status} \${Version}\\n' ${linuxBasePackageName} 2>/dev/null`
+        : linuxPackageManager === 'apk'
+          ? `if apk info -e ${linuxBasePackageName} >/dev/null 2>&1; then echo "install ok installed $(apk info -v ${linuxBasePackageName} | head -1)"; fi`
+          : `echo ""`,
   };
 
   return baseCommands[type];
 }
 
 export function getInstallCommand(type: DependenceTypes, name: string): string {
+  const linuxPackageManager = getLinuxPackageManager();
   const baseCommands = {
     [DependenceTypes.nodejs]: 'pnpm add -g',
     [DependenceTypes.python3]:
       'pip3 install --disable-pip-version-check --root-user-action=ignore',
-    [DependenceTypes.linux]: 'apk add --no-check-certificate',
+    [DependenceTypes.linux]:
+      linuxPackageManager === 'apt'
+        ? 'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends'
+        : linuxPackageManager === 'apk'
+          ? 'apk add --no-check-certificate'
+          : 'echo "Unsupported linux package manager" >&2 && exit 1',
   };
 
   let command = baseCommands[type];
 
   if (type === DependenceTypes.python3 && PYTHON_INSTALL_DIR) {
     command = `${command} --prefix=${PYTHON_INSTALL_DIR}`;
+  }
+
+  if (type === DependenceTypes.linux && !linuxPackageManager) {
+    return command;
   }
 
   return `${command} ${name.trim()}`;
@@ -577,12 +618,22 @@ export function getUninstallCommand(
   type: DependenceTypes,
   name: string,
 ): string {
+  const linuxPackageManager = getLinuxPackageManager();
   const baseCommands = {
     [DependenceTypes.nodejs]: 'pnpm remove -g',
     [DependenceTypes.python3]:
       'pip3 uninstall --disable-pip-version-check --root-user-action=ignore -y',
-    [DependenceTypes.linux]: 'apk del',
+    [DependenceTypes.linux]:
+      linuxPackageManager === 'apt'
+        ? 'DEBIAN_FRONTEND=noninteractive apt-get remove -y'
+        : linuxPackageManager === 'apk'
+          ? 'apk del'
+          : 'echo "Unsupported linux package manager" >&2 && exit 1',
   };
+
+  if (type === DependenceTypes.linux && !linuxPackageManager) {
+    return baseCommands[type];
+  }
 
   return `${baseCommands[type]} ${name.trim()}`;
 }

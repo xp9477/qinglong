@@ -9,7 +9,20 @@ else
 fi
 
 echo -e "\n1、安装bot依赖...\n"
-apk --no-cache add -f zlib-dev gcc jpeg-dev python3-dev musl-dev freetype-dev
+if command -v apk >/dev/null 2>&1; then
+  apk --no-cache add -f zlib-dev gcc jpeg-dev python3-dev musl-dev freetype-dev
+elif command -v apt-get >/dev/null 2>&1; then
+  DEBIAN_FRONTEND=noninteractive apt-get update
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    build-essential \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    python3-dev \
+    zlib1g-dev
+else
+  echo -e "\n不支持当前系统的包管理器，请手动安装 bot 依赖。\n"
+  exit 1
+fi
 echo -e "\nbot依赖安装成功...\n"
 
 echo -e "2、下载bot所需文件...\n"
