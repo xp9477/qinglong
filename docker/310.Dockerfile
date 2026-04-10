@@ -4,6 +4,7 @@ COPY package.json .npmrc pnpm-lock.yaml ./
 RUN set -x \
   && apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  build-essential \
   ca-certificates \
   git \
   nodejs \

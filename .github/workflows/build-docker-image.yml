@@ -112,8 +112,8 @@ jobs:
             QL_BRANCH=master
             SOURCE_COMMIT=${{ github.sha }}
           network: host
-          # linux/s390x npm 暂不可用
-          platforms: linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64,linux/ppc64le,linux/386
+          # Debian slim 构建依赖 distro nodejs/npm，linux/arm/v6 无可用包
+          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/386
           context: .
           file: ./docker/Dockerfile
           push: true
@@ -184,8 +184,8 @@ jobs:
             QL_BRANCH=master
             SOURCE_COMMIT=${{ github.sha }}
           network: host
-          # linux/s390x npm 暂不可用
-          platforms: linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64,linux/ppc64le,linux/386
+          # Debian slim 构建依赖 distro nodejs/npm，linux/arm/v6 无可用包
+          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/386
           context: .
           file: ./docker/310.Dockerfile
           push: true
