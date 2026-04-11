@@ -58,13 +58,6 @@ jobs:
           name: qinglong-static
           path: static
 
-      - name: Read version from version.yaml
-        id: version
-        run: |
-          VERSION=$(grep '^version:' version.yaml | awk '{print $2}')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
       - name: Setup timezone
         uses: szenius/set-timezone@v2.0
         with:
@@ -94,8 +87,6 @@ jobs:
             latest=false
           tags: |
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
-            type=raw,value=${{ steps.version.outputs.version }},enable=${{ github.ref == format('refs/heads/{0}', 'master') }}
-            type=semver,pattern={{version}}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -125,76 +116,3 @@ jobs:
       - name: Image digest
         run: |
           echo ${{ steps.docker_build.outputs.digest }}
-
-  build310:
-    if: ${{ github.ref_name == 'master' }}
-    needs: build-static
-
-    runs-on: ubuntu-22.04
-
-    permissions:
-      packages: write
-      contents: read
-
-    steps:
-      - uses: actions/checkout@v6
-      - name: Download static bundle
-        uses: actions/download-artifact@v4
-        with:
-          name: qinglong-static
-          path: static
-
-      - name: Read version from version.yaml
-        id: version
-        run: |
-          VERSION=$(grep '^version:' version.yaml | awk '{print $2}')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Setup timezone
-        uses: szenius/set-timezone@v2.0
-        with:
-          timezoneLinux: Asia/Shanghai
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push python3.10
-        id: docker_build_310
-        uses: docker/build-push-action@v6
-        with:
-          build-args: |
-            MAINTAINER=${{ github.repository_owner }}
-            QL_BRANCH=master
-            SOURCE_COMMIT=${{ github.sha }}
-          network: host
-          # Debian slim 构建依赖 distro nodejs/npm，linux/arm/v6 无可用包
-          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/ppc64le,linux/386
-          context: .
-          file: ./docker/310.Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/qinglong:python3.10
-            ${{ secrets.DOCKER_USERNAME }}/qinglong:${{ steps.version.outputs.version }}-python3.10
-          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/qinglong:cache-python3.10
-          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/qinglong:cache-python3.10,mode=max
-
-      - name: Image digest
-        run: |
-          echo ${{ steps.docker_build_310.outputs.digest }}
