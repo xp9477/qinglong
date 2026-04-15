@@ -696,6 +696,8 @@ export default class CronService {
 
     try {
       execSync(`crontab ${config.crontabFile}`);
+      // Force cron daemon to reload the updated user crontab immediately.
+      execSync('pkill -HUP cron || pkill -HUP crond || true');
     } catch (error: any) {
       const errorMsg = error.message || String(error);
       this.logger.error('[crontab] Failed to update system crontab:', errorMsg);

@@ -51,12 +51,10 @@ fi
 log_with_style "SUCCESS" "🎉  容器启动成功!"
 
 if command -v crond >/dev/null 2>&1; then
-  crond -f >/dev/null
+  exec crond -f >/dev/null
 elif command -v cron >/dev/null 2>&1; then
-  cron -f >/dev/null
+  exec cron -f >/dev/null
 else
   log_with_style "ERROR" "未找到 cron 守护进程"
   exit 1
 fi
-
-exec "$@"
