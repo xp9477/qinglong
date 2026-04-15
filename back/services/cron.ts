@@ -669,10 +669,34 @@ export default class CronService {
   private async setCrontab(data?: { data: Crontab[]; total: number }) {
     const tabs = data ?? (await this.crontabs());
     let crontab_string = '';
-    if (process.env.PATH) {
-      crontab_string += `PATH=${process.env.PATH}\n`;
+    const cronEnvKeys = [
+      'PATH',
+      'SHELL',
+      'HOME',
+      'QL_DIR',
+      'QL_DATA_DIR',
+      'QL_BRANCH',
+      'QlBaseUrl',
+      'QlPort',
+      'QlGrpcPort',
+      'PNPM_HOME',
+      'PYTHON_HOME',
+      'PYTHONUSERBASE',
+      'PIP_CACHE_DIR',
+      'PYTHONPATH',
+      'NODE_PATH',
+    ] as const;
+    const cronEnv = cronEnvKeys
+      .map((key) => [key, process.env[key]])
+      .filter(([, value]) => typeof value === 'string' && value.length > 0);
+
+    if (!cronEnv.find(([key]) => key === 'SHELL')) {
+      cronEnv.unshift(['SHELL', '/bin/bash']);
     }
-    crontab_string += 'SHELL=/bin/bash\n';
+
+    for (const [key, value] of cronEnv) {
+      crontab_string += `${key}=${String(value).replace(/\n/g, '')}\n`;
+    }
     tabs.data.forEach((tab) => {
       if (
         tab.isDisabled === 1 ||
